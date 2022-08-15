@@ -7,57 +7,134 @@ import Subscribe from '../components/Subscribe.js';
 import Footer from '../components/Footer.js';
 
 import icon from './../img/presalewoofie.png';
+import axios from 'axios';
 
 export default function Trade({token, setToken, name, setName, value, setValue}) {
 
-    const [usdBuy, setUsdBuy] = useState("");
-    const [woofieBuy, setWoofieBuy] = useState("");
-    const [usdSell, setUsdSell] = useState("");
-    const [woofieSell, setWoofieSell] = useState("");
+    const URL_BACK = 'http://localhost:5000';
+
+    const currencyExchange = 5;
+
+    const [woofieBuy, setWoofieBuy] = useState('W$ ' + mask("100"));
+    const [woofieSell, setWoofieSell] = useState('W$ ' + mask("100"));
     const [loadingBuy, setLoadingBuy] = useState(false);
     const [loadingSell, setLoadingSell] = useState(false);
+
+    function buyForm(event) {
+        event.preventDefault();
+
+        setLoadingBuy(true);
+
+        axios.post(URL_BACK + "/buy", {
+            value: parseInt(removeMask(woofieBuy)*100)
+        }, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        })
+        .then(res => {
+            setLoadingBuy(false);
+            setWoofieBuy('W$ ' + mask("100"));
+            balance();
+        })
+        .catch(error => {
+            setLoadingBuy(false);
+            alert("Não foi possível realizar a compra. Tente novamente mais tarde.")
+            console.log(error);
+        });
+    }
+    function sellForm(event) {
+        event.preventDefault();
+
+        setLoadingSell(true);
+
+        axios.post(URL_BACK + "/sell", {
+            value: parseInt(removeMask(woofieSell)*100)
+        }, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        })
+        .then(res => {
+            setLoadingSell(false);
+            setWoofieSell('W$ ' + mask("100"));
+            balance();
+        })
+        .catch(error => {
+            setLoadingSell(false);
+            alert("Não foi possível realizar a venda. Tente novamente mais tarde.")
+            console.log(error);
+        });
+    }
+
+    function balance() {
+        axios.get(URL_BACK + "/balance", {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        })
+        .then(res => {
+            setValue(res.data)
+        })
+        .catch(error => {
+            console.log(error);
+        });
+    }
 
     return (
         <Main>
             <Header token={token} setToken={setToken} name={name} setName={setName} value={value} setValue={setValue}/>
             <img className='icon' src={icon} alt="icon" />
             <TradeTag>
-                <div className='buy'>
+                <form onSubmit={buyForm} className='buy'>
                     <p className='title'>Buy WOOFIE</p>
-                    <div className='label usd'>
-                        <p>USDC.e</p>
-                        <p>Balance: 0.0000</p>
-                    </div>
-                    <input type="text" value={usdBuy} onChange={e => setUsdBuy(e.target.value)} disabled={loadingBuy || loadingSell} />
                     <div className='label woofie'>
                         <p>WOOFIE</p>
-                        <p>Balance: 0.0000</p>
                     </div>
-                    <input type="text" value={woofieBuy} onChange={e => setWoofieBuy(e.target.value)} disabled={loadingBuy || loadingSell} />
-                    <p className='message'>Share your referral link for buys and earn 10% pLava on all buys:</p>
-                    <button className={(loadingBuy || loadingSell) ? "disabled" : ""}>{loadingBuy ? <ThreeDots {...{ color: "#9f844b" }}/> : "Buy"}</button>
-                </div>
-                <div className='sell'>
-                <p className='title'>Sell WOOFIE</p>
-                    <div className='label usd'>
-                        <p>WOOFIE</p>
-                        <p>Balance: 0.0000</p>
+                    <input type="text" value={woofieBuy} onChange={e => setWoofieBuy('W$ ' + mask(e.target.value))} disabled={loadingBuy || loadingSell} />
+                    <div className='label brl'>
+                        <p>Reais</p>
                     </div>
-                    <input type="text" value={usdSell} onChange={e => setUsdSell(e.target.value)} disabled={loadingBuy || loadingSell} />
+                    <input type="text" value={'R$ ' + mask((removeMask(woofieBuy)*currencyExchange).toFixed(2))} disabled={true} />
+                    <p className='message'></p>
+                    <button type="submit" className={(loadingBuy || loadingSell) ? "disabled" : ""}>{loadingBuy ? <ThreeDots {...{ color: "#9f844b" }}/> : "Buy"}</button>
+                </form>
+                <form onSubmit={sellForm} className='sell'>
+                    <p className='title'>Sell WOOFIE</p>
                     <div className='label woofie'>
-                        <p>USDC.e</p>
-                        <p>Balance: 0.0000</p>
+                        <p>WOOFIE</p>
                     </div>
-                    <input type="text" value={woofieSell} onChange={e => setWoofieSell(e.target.value)} disabled={loadingBuy || loadingSell} />
-                    <p className='message'>The above USDC.e includes 15% sales tax. This is the approx. amount of tokens you would receive on sell.</p>
+                    <input type="text" value={woofieSell} onChange={e => setWoofieSell('W$ ' + mask(e.target.value))} disabled={loadingBuy || loadingSell} />
+                    <div className='label brl'>
+                        <p>Reais</p>
+                    </div>
+                    <input type="text" value={'R$ ' + mask((removeMask(woofieSell)*currencyExchange).toFixed(2))} disabled={true} />
+                    <p className='message'></p>
                     <button className={(loadingBuy || loadingSell) ? "disabled" : ""}>{loadingSell ? <ThreeDots {...{ color: "#9f844b" }}/> : "Sell"}</button>
-                </div>
+                </form>
             </TradeTag>
             <Subscribe />
             <Footer />
         </Main>
     );
 }
+
+function mask(e) {
+    let value = e;
+    value = Number(value.replace(/\D/g, ""))/100;
+    value = formatter.format(value).replace(/R\$./, "");
+    return value;
+}
+
+function removeMask(e) {
+    let value = e;
+    return Number(value.replace(/\D/g,""))/100
+}
+
+const formatter = new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+});
 
 const Main = styled.div`
 
@@ -209,12 +286,14 @@ const TradeTag = styled.div`
     }
 
     input {
-        border: 0;  
+        border: 0;
+        padding-left: .9rem;
         background-color: #FFFFFF;
     }
 
     input:disabled {
-        background-color: #a5a5a5;
+        font-weight: 700;
+        color: #000000;
     }
 
     button {

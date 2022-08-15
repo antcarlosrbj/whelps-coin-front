@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
@@ -16,21 +16,37 @@ export default function Header({token, setToken, name, setName, value, setValue}
     const [passwordConfirmation, setPasswordConfirmation] = useState("");
     const [erro, setErro] = useState("");
     const [loading, setLoading] = useState(false);
-    /* const [value, setValue] = useState(""); */
     let tokenAux = "";
+
+    useEffect(() => {
+        if (localStorage.getItem("token") && token === "") {
+            axios.get(URL_BACK + "/verify-token", {
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem("token")}`
+                }
+            })
+            .then(res => {
+                setToken(localStorage.getItem("token"));
+                tokenAux = localStorage.getItem("token");
+                setName(res.data);
+                balance();
+            })
+            .catch(error => {
+                localStorage.removeItem("token");
+            });
+        }
+    });
 
     function loginForm(event) {
         event.preventDefault();
 
         setLoading(true);
 
-        const promisse = axios.post(URL_BACK + "/sign-in", {
+        axios.post(URL_BACK + "/sign-in", {
             email: email,
             password: password
         })
-
-        promisse.then(res => {
-            console.log(`_______________________________________ res.data.token: ${res.data.token} (${typeof res.data.token}) - ${JSON.stringify(res.data.token)}`)
+        .then(res => {
             setToken(res.data.token);
             tokenAux = res.data.token;
             setName(res.data.name);
@@ -38,9 +54,8 @@ export default function Header({token, setToken, name, setName, value, setValue}
             setLoading(false);
             setAccount({login: false, signup: false})
             balance();
-        });
-
-        promisse.catch(error => {
+        })
+        .catch(error => {
             setErro(<p className='erro'>Usuário e/ou senha incorretos</p>);
             console.log(error);
             setLoading(false);
@@ -49,7 +64,6 @@ export default function Header({token, setToken, name, setName, value, setValue}
     }
 
     function balance() {
-        console.log(`_______________________________________ token: ${token} (${typeof token}) - ${JSON.stringify(token)}`)
         axios.get(URL_BACK + "/balance", {
             headers: {
                 'Authorization': `Bearer ${tokenAux}`
@@ -98,7 +112,7 @@ export default function Header({token, setToken, name, setName, value, setValue}
                 <Link to="/trade">TRADE</Link>
             </Menu>
             <Account>
-                <button onClick={() => setAccount({login: true, signup: false})}>{name ? `Olá, ${name} - ${formatter.format(value/100)}` : "LOGIN"}</button>
+                <button onClick={() => setAccount({login: true, signup: false})}>{name ? `Olá, ${name} - ${formatter.format(value/100).replace("R", "W")}` : "LOGIN"}</button>
                 <div onClick={() => setAccount({login: false, signup: false})} className={account.login || account.signup ? "account" : "account hidden"}></div>
                 <form onSubmit={loginForm} className={account.login ? "" : "hidden"}>
                     <input type="email" value={email} placeholder="E-mail" onChange={e => setEmail(e.target.value)} required />
